@@ -1,5 +1,5 @@
 services:
-  - type: postgres
+  - type: pserv
     name: xeno-db
     databaseName: xeno_crm
     user: postgres
@@ -14,9 +14,17 @@ services:
     startCommand: "npm start"
     envVars:
       - key: DATABASE_URL
-        fromService: { type: postgres, name: xeno-db, property: connectionString }
+        fromService:
+          type: pserv
+          name: xeno-db
+          property: connectionString
+
       - key: REDIS_URL
-        fromService: { type: redis, name: xeno-redis, property: connectionString }
+        fromService:
+          type: redis
+          name: xeno-redis
+          property: connectionString
+
       - key: GROQ_API_KEY
         sync: false
 
@@ -27,6 +35,13 @@ services:
     startCommand: "npm run worker"
     envVars:
       - key: DATABASE_URL
-        fromService: { type: postgres, name: xeno-db, property: connectionString }
+        fromService:
+          type: pserv
+          name: xeno-db
+          property: connectionString
+
       - key: REDIS_URL
-        fromService: { type: redis, name: xeno-redis, property: connectionString }
+        fromService:
+          type: redis
+          name: xeno-redis
+          property: connectionString
