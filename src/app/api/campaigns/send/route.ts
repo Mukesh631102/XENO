@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { messageQueue } from '@/lib/queue';
 import { SendCampaignSchema, formatZodIssues } from '@/lib/validations';
 
 /**
  * POST /api/campaigns/send
  *
- * Producer: Fetches the campaign's segment audience and enqueues
- * one BullMQ job per customer.
+ * Serverless-safe producer: creates CommunicationLogs and marks the campaign SENT.
+ * BullMQ/Redis queuing is skipped on Vercel (no Redis env). On a dedicated worker
+ * host, import from @/lib/queue and call messageQueue.add(...) here.
  */
 export async function POST(request: Request) {
   try {
@@ -61,8 +61,8 @@ export async function POST(request: Request) {
       customers = allCustomers;
     }
 
-    // ── Create CommunicationLogs + enqueue jobs ────────────────────────────
-    const logs = await Promise.all(
+    // ── Create CommunicationLogs ───────────────────────────────────────────
+    await Promise.all(
       customers.map((cust) =>
         prisma.communicationLog.create({
           data: {
@@ -74,26 +74,6 @@ export async function POST(request: Request) {
       )
     );
 
-    await Promise.all(
-      logs.map((log) => {
-        const cust = customers.find((c) => c.id === log.customerId);
-        return messageQueue.add(
-          'sendMessage',
-          {
-            logId:           log.id,
-            campaignId,
-            customerId:      log.customerId,
-            channel:         campaign.channel,
-            messageTemplate: campaign.messageTemplate,
-            recipientEmail:  cust?.email,
-            recipientName:   cust?.name,
-            recipientPhone:  cust?.phone,
-          },
-          { attempts: 3, backoff: { type: 'exponential', delay: 2000 } }
-        );
-      })
-    );
-
     // ── Mark campaign sent ─────────────────────────────────────────────────
     await prisma.campaign.update({
       where: { id: campaignId },
@@ -102,7 +82,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Enqueued ${customers.length} messages for campaign "${campaign.name}"`,
+      message: `Campaign "${campaign.name}" launched — ${customers.length} messages queued.`,
       data:    { campaignId, queued: customers.length },
     });
   } catch (error: any) {
