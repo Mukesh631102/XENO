@@ -1,4 +1,3 @@
-# render.yaml
 services:
   - type: postgres
     name: xeno-db
@@ -19,7 +18,7 @@ services:
       - key: REDIS_URL
         fromService: { type: redis, name: xeno-redis, property: connectionString }
       - key: GROQ_API_KEY
-        generateValue: true # You will fill this in the Render Dashboard later
+        sync: false
 
   - type: worker
     name: xeno-worker
@@ -30,4 +29,4 @@ services:
       - key: DATABASE_URL
         fromService: { type: postgres, name: xeno-db, property: connectionString }
       - key: REDIS_URL
-        fromService: { type: redis, name: xeno-redis, property: connectionString }git add .
+        fromService: { type: redis, name: xeno-redis, property: connectionString }
